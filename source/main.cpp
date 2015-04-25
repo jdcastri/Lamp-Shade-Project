@@ -167,8 +167,10 @@ int main(int argc, char **argv)
     std::cout<<"Load Mesh : "<<argv[1]<<"\n";
     loadMesh(argv[1], dim);
     
+    int nx = g_voxelGrid->m_dimX;
+    int ny = g_voxelGrid->m_dimY;
+    int nz = g_voxelGrid->m_dimZ;
 
-    
     //Cast ray, check if voxel is inside or outside
     //even number of surface intersections = outside (OUT then IN then OUT)
     // odd number = inside (IN then OUT)
@@ -183,9 +185,9 @@ int main(int argc, char **argv)
     
     CompFab::Vec3 hspacing(0.5*spacing, 0.5*spacing, 0.5*spacing);
     
-    for (int ii = 0; ii < dimX; ii++) {
-        for (int jj = 0; jj < dimY; jj++) {
-            for (int kk = 0; kk < dimZ; kk++) {
+    for (int ii = 0; ii < nx; ii++) {
+        for (int jj = 0; jj < ny; jj++) {
+            for (int kk = 0; kk < nz; kk++) {
                 CompFab::Vec3 coord(((double)ii)*spacing, ((double)jj)*spacing, ((double)kk)*spacing);
                 voxelPos = coord + hspacing;
                 int hits = numSurfaceIntersections(voxelPos, direction);
