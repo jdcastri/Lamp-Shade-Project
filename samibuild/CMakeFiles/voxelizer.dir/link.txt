@@ -1,0 +1,1 @@
+/usr/bin/c++   -g -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.9.sdk -Wl,-search_paths_first -Wl,-headerpad_max_install_names  -L/opt/local/lib CMakeFiles/voxelizer.dir/source/CompFab.cpp.o CMakeFiles/voxelizer.dir/source/main.cpp.o CMakeFiles/voxelizer.dir/source/Mesh.cpp.o  -o voxelizer  

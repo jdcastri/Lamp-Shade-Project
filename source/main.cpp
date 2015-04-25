@@ -179,22 +179,19 @@ int main(int argc, char **argv)
     /* Iterate over all voxels in g_voxelGrid and test whether they are inside our outside of the
      * surface defined by the triangles in g_triangleList */
 
-    int nx = g_voxelGrid->m_dimX;
-    int ny = g_voxelGrid->m_dimY;
-    int nz = g_voxelGrid->m_dimZ;
     double spacing = g_voxelGrid->m_spacing;
     
     CompFab::Vec3 hspacing(0.5*spacing, 0.5*spacing, 0.5*spacing);
     
-    for (int ii = 0; ii < nx; ii++) {
-        for (int jj = 0; jj < ny; jj++) {
-            for (int kk = 0; kk < nz; kk++) {
+    for (int ii = 0; ii < dimX; ii++) {
+        for (int jj = 0; jj < dimY; jj++) {
+            for (int kk = 0; kk < dimZ; kk++) {
                 CompFab::Vec3 coord(((double)ii)*spacing, ((double)jj)*spacing, ((double)kk)*spacing);
                 voxelPos = coord + hspacing;
                 int hits = numSurfaceIntersections(voxelPos, direction);
 
                 if (hits % 2 != 0) {
-                    g_voxelGrid->m_insideArray[kk*(nx*ny)+jj*ny + ii] = true;
+                    g_voxelGrid->isInside(ii,jj,kk) = true;
                 }
             }
         }
