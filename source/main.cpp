@@ -148,6 +148,7 @@ bool loadMesh(char *filename, unsigned int dimMesh, unsigned int dimRoom)
     //Create Voxel Grid
     CompFab::Vec3 bbMax, bbMin;
     BBox(*tempMesh, bbMin, bbMax);
+
     
     //Build Voxel Grid
     double bbX = bbMax[0] - bbMin[0];
@@ -246,6 +247,11 @@ void loadTestSmileyOnGround()
 // Inserts 0's and 1's into imageArray based on loaded image from imagePath.
 void loadImage(std::string imagePath){
     cv::Mat img = cv::imread(imagePath,CV_LOAD_IMAGE_GRAYSCALE); // Reads image at path.
+    if (! img.data) {
+        std::cout << "***********Could not open or find image**********\n" << std::endl;
+        throw 20; 
+    }
+
     cv::Scalar intensity;
 
     // Image pixels
@@ -278,11 +284,11 @@ int main(int argc, char **argv)
 
     std::cout << "Load Mesh: " << argv[1] << "\n";
     loadMesh(argv[1], dimMesh, dimRoom);
-
+    
     // Load image
-    std::string imagePath = "../shadowimages/star.png";
+    std::string imagePath = "/home/jdcastri/Spring2015/6.S079/project/shadowimages/star.png";
     loadImage(imagePath);
-
+    
     std::cout << "Image from " << imagePath << " loaded" << "\n";
 
     // Show floor with image
