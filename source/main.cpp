@@ -1,52 +1,105 @@
-//Computational Fabrication Assignment #1
-// By David Levin 2014
+/*
+** Authors: Sami Alsheikh and Juan Castrillon
+** April 2015
+** Based on work by David Levin 2014 for 6.S079 Assignment 1.
+ */
+
 #include <iostream>
 #include <vector>
 #include <cmath>
 #include "../include/CompFab.h"
 #include "../include/Mesh.h"
 
-//Ray-Triangle Intersection
-//Returns 1 if triangle and ray intersect, 0 otherwise
+// Global Variables //
+std::vector<CompFab::Triangle> g_triangleList; // Triangle list 
+CompFab::VoxelGrid *g_voxelGrid; // Voxel grid of universe
+unsigned int dimMesh = 32; // dimensions of mesh (affects runtime)
+unsigned int dimRoom = 128; // dimensions of room (does not affect runtime)
+int* imageArray; // Array of pixels of desired projection image
+
+
+// Ray-Floor Intersection Point
+// Returns the point where the given ray intersects with the floor PLANE (even if out of bounds).
+CompFab::Vec3 rayFloorIntersection(CompFab::Ray &ray)
+{
+    CompFab::Vec3 orig, dir, floorNorm, intersection;
+
+    orig = ray.m_origin;
+    dir = ray.m_direction;
+
+    // Normal to floor is (0,0,1)
+    floorNorm = CompFab::Vec3(0.0,0.0,1.0);
+
+    // Time of intersection
+    double t = -1 * (orig * floorNorm) / (dir*floorNorm);
+
+    return CompFab::Vec3(orig[0]+t*dir[0], orig[1]+t*dir[1], orig[2]+t*dir[2]);
+}
+
+// Returns whether or not the voxel should still be present to block light from floor.
+int shouldBlock(CompFab::Vec3 &meshVoxelPos, CompFab::Vec3 &lightSourcePos)
+{
+    CompFab::Vec3 intersection, dir;
+
+    dir = meshVoxelPos - lightSourcePos;
+    CompFab::Ray ray(lightSourcePos,dir);
+
+    intersection = rayFloorIntersection(ray);
+
+    if(intersection[0] < 0 || intersection[1] < 0 || 
+        intersection[0] > dimRoom - 1 || intersection[1] > dimRoom - 1 ){
+        return 1; // If intersection is outside room dimensions, voxel should stay.
+    }
+
+    // imageArray tells us whether or not that pixel on the ground is black or white.
+    // Note: currently, we are treating 0 as "light" and 1 as "shadow"
+    // to change, we can return (1 - imageArray[...]).
+    return imageArray[int(intersection[0])*dimRoom + int(intersection[1])];
+}
+
+// Ray-Triangle Intersection
+// Returns 1 if triangle and ray intersect, 0 otherwise
 int rayTriangleIntersection(CompFab::Ray &ray, CompFab::Triangle &triangle)
 {
-    
-    CompFab::Vec3 v1 = triangle.m_v1;
-    CompFab::Vec3 v2 = triangle.m_v2;
-    CompFab::Vec3 v3 = triangle.m_v3;
-    CompFab::Vec3 orig = ray.m_origin;
-    CompFab::Vec3 dir = ray.m_direction;
+    CompFab::Vec3 v1, v2, v3, orig, dir, edge1, edge2, P;
+    float determinant, inv_det, u, v, t;
 
-    CompFab::Vec3 edge1 = v2 - v1;
-    CompFab::Vec3 edge2 = v3 - v1;
-    CompFab::Vec3 P = dir % edge2;
-    double determinant = edge1 * P;
+    v1 = triangle.m_v1;
+    v2 = triangle.m_v2;
+    v3 = triangle.m_v3;
+    orig = ray.m_origin;
+    dir = ray.m_direction;
+
+    edge1 = v2 - v1;
+    edge2 = v3 - v1;
+    P = dir % edge2;
+    determinant = edge1 * P;
 
     if (std::abs(determinant) < .000001 ) {
         return 0;
     }
 
-    // calculate u. Assure u is between (0,1)
+    // Calculate u. Assure u is between (0,1)
 
-    double inv_det = 1.0f / determinant;
+    inv_det = 1.0f / determinant;
     CompFab::Vec3 T = orig - v1;
 
-    float u = (T * P) * inv_det;
+    u = (T * P) * inv_det;
 
     if ( u < 0 || u > 1) {
         return 0;
     }
 
-    // calculate v. Assure v is positive and u+v<1
+    // Calculate v. Assure v is positive and u+v<1
     CompFab::Vec3 Q = T % edge1;
-    double v = (dir * Q) * inv_det;
+    v = (dir * Q) * inv_det;
 
     if ( v < 0 || u + v > 1 ) {
         return 0;
     }
 
-    // calculate t
-    double t = (edge2 * Q) * inv_det;
+    // Calculate t
+    t = (edge2 * Q) * inv_det;
 
     if ( t > .000001) {
         return 1;
@@ -55,11 +108,6 @@ int rayTriangleIntersection(CompFab::Ray &ray, CompFab::Triangle &triangle)
     return 0;
 }
 
-//Triangle list (global)
-typedef std::vector<CompFab::Triangle> TriangleList;
-
-TriangleList g_triangleList;
-CompFab::VoxelGrid *g_voxelGrid;
 
 // Number of intersections with surface made by a ray originating at voxel and cast in direction.
 int numSurfaceIntersections(CompFab::Vec3 &voxelPos, CompFab::Vec3 &dir)
@@ -152,34 +200,91 @@ void saveVoxelsToObj(const char * outfile)
 }
 
 
+// Loads floor voxels and imageArray with test smiley face
+// Used for testing.
+void loadTestSmileyOnGround()
+{
+
+    // Include holes to resemble "picture"
+    int x,y;
+    // EYE //
+    for(int dx = 0; dx < 0.125*dimRoom; dx++){
+        for(int dy = 0; dy < 0.125*dimRoom; dy++){
+            x = dimRoom/3.0+dx;
+            y = dimRoom/3.0+dy;
+            g_voxelGrid->isInside(x,y,0) = false;
+            imageArray[x*dimRoom+y] = 0;
+        }
+    }
+
+    // EYE // 
+    for(int dx = 0; dx < 0.125*dimRoom; dx++){
+        for(int dy = 0; dy < 0.125*dimRoom; dy++){
+            x = 3*dimRoom/4.0+dx;
+            y = dimRoom/3.0+dy;
+            g_voxelGrid->isInside(x,y,0) = false;
+            imageArray[x*dimRoom+y] = 0;
+        }
+    }
+
+    // MOUTH //
+    for(int dy = 2*dimRoom/3; dy < 2*dimRoom/3+dimRoom/10; dy++ ){
+        for(float t = 0; t < 3.14; t=t+6.0/dimRoom){
+            x = dimRoom/2.75+t*dimRoom/6;
+            y = dy+20*sin(t);
+            g_voxelGrid->isInside(x,y,0) = false;
+            imageArray[x*dimRoom+y] = 0;
+        }
+    }
+
+}
+
 int main(int argc, char **argv)
 {
 
-    unsigned int dimMesh = 32; // dimensions of mesh (e.g. 32x32x32)
-    unsigned int dimRoom = 128; // dimensions of room 
-
-    // offsets of lamp from bottom left corner of room
-    int offsetX = dimRoom/2-dimMesh/2; 
-    int offsetY = dimRoom/2-dimMesh/2;
-    int offsetZ = dimRoom-dimMesh;
-
-    // load OBJ
+    // Load OBJ
     if(argc < 3)
     {
         std::cout<<"Usage: Voxelizer InputMeshFilename OutputMeshFilename \n";
         return 0;
     }
-    
+
     std::cout<<"Load Mesh : "<<argv[1]<<"\n";
     loadMesh(argv[1], dimMesh, dimRoom);
 
+    // Offsets of lamp from bottom left corner of room
+    int offsetX = dimRoom/2-dimMesh/2; 
+    int offsetY = dimRoom/2-dimMesh/2; 
+    int offsetZ = dimRoom-dimMesh;
 
-    //Cast ray, check if voxel is inside or outside
-    //even number of surface intersections = outside (OUT then IN then OUT)
-    // odd number = inside (IN then OUT)
-    CompFab::Vec3 voxelPos;
+    // Light source location
+    CompFab::Vec3 lightSource(dimRoom/2, dimRoom/2, dimRoom - dimMesh/3);
+
+    // "Image" pixels
+    imageArray = new int[dimRoom*dimRoom]; // to access (x,y): imageArray[x*dimRoom + y]
+    
+    // TODO: integrate actual image here
+    for(int x = 0; x < dimRoom; x++){
+        for(int y = 0; y < dimRoom; y++){
+            imageArray[x*dimRoom+y] = 1; // clearing "image"
+        }
+    }
+
+    // Show floor
+    // Delete later
+    for (int ii = 0; ii < dimRoom; ii++) {
+        for (int jj = 0; jj < dimRoom; jj++) {
+            g_voxelGrid->isInside(ii,jj,0) = true;
+        }
+    }
+
+    // Delete later
+    loadTestSmileyOnGround();
+
+    /// Ray casting for voxelization ///
+    CompFab::Vec3 voxelPos, roomVoxelPos;
     CompFab::Vec3 direction(1.0,0.0,0.0);
-
+ 
     double spacing = g_voxelGrid->m_spacing;
     
     CompFab::Vec3 hspacing(0.5*spacing, 0.5*spacing, 0.5*spacing);
@@ -192,23 +297,33 @@ int main(int argc, char **argv)
                 int hits = numSurfaceIntersections(voxelPos, direction);
 
                 if (hits % 2 != 0) {
-                    g_voxelGrid->isInside(ii+offsetX,jj+offsetY,kk+offsetZ) = true;
+                    // At this point, we would normally set 
+                    // voxel to true, but for desired shadows,
+                    // we check to see if we should leave this
+                    // voxel in or out for light to pass through.
+
+                    // Location of voxel in room frame
+                    CompFab::Vec3 roomVoxelPos(((double)(ii+offsetX)), 
+                                        ((double)(jj+offsetY)), 
+                                        ((double)(kk+offsetZ)));
+
+                    if(shouldBlock(roomVoxelPos, lightSource)){
+                        g_voxelGrid->isInside(ii+offsetX,jj+offsetY,kk+offsetZ) = true;
+                    }
+
                 }
             }
         }
     }
 
-    // Show floor
-    for (int ii = 0; ii < dimRoom; ii++) {
-        for (int jj = 0; jj < dimRoom; jj++) {
-            g_voxelGrid->isInside(ii,jj,0) = true;
-        }
-    }
-
+    // Show light source location with voxel
+    // Delete later
+    g_voxelGrid->isInside(lightSource[0],lightSource[1],lightSource[2]) = true;
 
 
     //Write out voxel data as obj
     saveVoxelsToObj(argv[2]);
     
     delete g_voxelGrid;
+    delete[] imageArray;
 }
