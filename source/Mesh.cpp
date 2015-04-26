@@ -215,7 +215,7 @@ void Mesh::read_obj(std::istream & f)
         tex.push_back(texcoord);
     }
   }
-  std::cout<<"Num Triangles: "<< t.size()<<"\n";
+  std::cout<<"Number of Triangles in Mesh: "<< t.size()<<"\n";
 }
 
 void Mesh::read_ply(std::istream & f)
