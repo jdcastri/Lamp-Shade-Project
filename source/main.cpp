@@ -15,12 +15,13 @@
 #include "opencv2/imgproc/imgproc.hpp"
 #include "opencv2/highgui/highgui.hpp"
 
-
 // Global Variables //
 std::vector<CompFab::Triangle> g_triangleList; // Triangle list 
 CompFab::VoxelGrid *g_voxelGrid; // Voxel grid of universe
 unsigned int dimMesh = 32; // dimensions of mesh (affects runtime)
 unsigned int dimRoom = 256; // dimensions of room (does not affect runtime)
+// NOTE: As code is written now, dimRoom must equal dimension of input image.
+// TODO Make scaling/room and mesh dimensions not scale in relation to each other.
 int* imageArray; // Array of pixels of desired projection image
 
 
@@ -42,13 +43,13 @@ CompFab::Vec3 rayFloorIntersection(CompFab::Ray &ray)
     return CompFab::Vec3(orig[0]+t*dir[0], orig[1]+t*dir[1], orig[2]+t*dir[2]);
 }
 
-// Returns whether or not the voxel should still be present to block light from floor.
+// Returns whether or not the voxel should still be present to block light to floor.
 int shouldBlock(CompFab::Vec3 &meshVoxelPos, CompFab::Vec3 &lightSourcePos)
 {
     CompFab::Vec3 intersection, dir;
 
     dir = meshVoxelPos - lightSourcePos;
-    CompFab::Ray ray(lightSourcePos,dir);
+    CompFab::Ray ray(lightSourcePos,dir); // ray from light source pointing toward voxel
 
     intersection = rayFloorIntersection(ray);
 
@@ -59,6 +60,7 @@ int shouldBlock(CompFab::Vec3 &meshVoxelPos, CompFab::Vec3 &lightSourcePos)
 
     // imageArray tells us whether or not that pixel on the ground is black or white.
     // We treat 0 as shadow and 1 as light
+    // If pixel is 0, we want a shadow so we should block (return 1), and vice versa.
     return 1-imageArray[int(intersection[0])*dimRoom + int(intersection[1])];
 }
 
@@ -169,7 +171,6 @@ bool loadMesh(char *filename, unsigned int dimMesh, unsigned int dimRoom)
     delete tempMesh;
     
     return true;
-   
 }
 
 void saveVoxelsToObj(const char * outfile)
@@ -204,7 +205,7 @@ void saveVoxelsToObj(const char * outfile)
 
 
 // Loads floor voxels and imageArray with test smiley face
-// Used for testing.
+// Used for testing before we could load images.
 void loadTestSmileyOnGround()
 {
 
@@ -242,30 +243,8 @@ void loadTestSmileyOnGround()
 
 }
 
-int main(int argc, char **argv)
-{
-
-    // Load OBJ
-    if(argc < 3)
-    {
-        std::cout<<"Usage: Voxelizer InputMeshFilename OutputMeshFilename \n";
-        return 0;
-    }
-
-    std::cout << "Load Mesh: " << argv[1] << "\n";
-    loadMesh(argv[1], dimMesh, dimRoom);
-
-    // Offsets of lamp from bottom left corner of room
-    int offsetX = dimRoom/2-dimMesh/2; 
-    int offsetY = dimRoom/2-dimMesh/2; 
-    int offsetZ = dimRoom-dimMesh;
-
-    // Light source location
-    CompFab::Vec3 lightSource(dimRoom/2, dimRoom/2, dimRoom - dimMesh/3);
-
-
-    // IMAGE LOADING //
-    std::string imagePath = "../shadowimages/star.png";
+// Inserts 0's and 1's into imageArray based on loaded image from imagePath.
+void loadImage(std::string imagePath){
     cv::Mat img = cv::imread(imagePath,CV_LOAD_IMAGE_GRAYSCALE); // Reads image at path.
     cv::Scalar intensity;
 
@@ -285,6 +264,24 @@ int main(int argc, char **argv)
             }
         }
     }
+}
+
+int main(int argc, char **argv)
+{
+
+    // Load OBJ file of lampshade
+    if(argc < 3)
+    {
+        std::cout<<"Usage: Voxelizer InputMeshFilename OutputMeshFilename \n";
+        return 0;
+    }
+
+    std::cout << "Load Mesh: " << argv[1] << "\n";
+    loadMesh(argv[1], dimMesh, dimRoom);
+
+    // Load image
+    std::string imagePath = "../shadowimages/star.png";
+    loadImage(imagePath);
 
     std::cout << "Image from " << imagePath << " loaded" << "\n";
 
@@ -299,7 +296,16 @@ int main(int argc, char **argv)
     // Delete later
     // loadTestSmileyOnGround();
 
-    /// RAY CASTING FOR VOXELIZATION ///
+    /// Configure light source and lampshade ///
+    // Offsets of lamp from bottom left corner of room
+    int offsetX = dimRoom/2-dimMesh/2; 
+    int offsetY = dimRoom/2-dimMesh/2; 
+    int offsetZ = dimRoom-dimMesh;
+    // Light source location in room frame
+    CompFab::Vec3 lightSource(dimRoom/2, dimRoom/2, dimRoom - dimMesh/3);
+
+
+    /// Ray casting for voxelization ///
     CompFab::Vec3 voxelPos, roomVoxelPos;
     CompFab::Vec3 direction(1.0,0.0,0.0);
  
@@ -316,7 +322,7 @@ int main(int argc, char **argv)
 
                 if (hits % 2 != 0) {
                     // At this point, we would normally set 
-                    // voxel to true, but for desired shadows,
+                    // voxel to true, but for the desired shadow image,
                     // we check to see if we should leave this
                     // voxel in or out for light to pass through.
 
@@ -333,10 +339,9 @@ int main(int argc, char **argv)
         }
     }
 
-    // Show light source location with voxel
+    // Show light source location with single voxel
     // Delete later
-    g_voxelGrid->isInside(lightSource[0],lightSource[1],lightSource[2]) = true;
-
+    // g_voxelGrid->isInside(lightSource[0],lightSource[1],lightSource[2]) = true;
 
     //Write out voxel data as obj
     saveVoxelsToObj(argv[2]);
