@@ -6,9 +6,8 @@
 #include "../include/CompFab.h"
 #include "../include/Mesh.h"
 
-//#include "opencv2/core/core_c.h"
+// opencv dependencies
 #include "opencv2/core/core.hpp"
-//#include "opencv2/imgproc/imgproc_c.h"
 #include "opencv2/imgproc/imgproc.hpp"
 #include "opencv2/highgui/highgui.hpp"
 
@@ -81,7 +80,7 @@ int numSurfaceIntersections(CompFab::Vec3 &voxelPos, CompFab::Vec3 &dir)
     return numHits;
 }
 
-bool loadMesh(char *filename, unsigned int dim)
+bool loadMesh(char *filename, unsigned int dimMesh, unsigned int dimRoom)
 {
     g_triangleList.clear();
     
@@ -110,16 +109,16 @@ bool loadMesh(char *filename, unsigned int dim)
     
     if(bbX > bbY && bbX > bbZ)
     {
-        spacing = bbX/(double)(dim-2);
+        spacing = bbX/(double)(dimMesh);
     } else if(bbY > bbX && bbY > bbZ) {
-        spacing = bbY/(double)(dim-2);
+        spacing = bbY/(double)(dimMesh);
     } else {
-        spacing = bbZ/(double)(dim-2);
+        spacing = bbZ/(double)(dimMesh);
     }
     
     CompFab::Vec3 hspacing(0.5*spacing, 0.5*spacing, 0.5*spacing);
     
-    g_voxelGrid = new CompFab::VoxelGrid(bbMin-hspacing, dim, dim, dim, spacing);
+    g_voxelGrid = new CompFab::VoxelGrid(bbMin-hspacing, dimRoom, dimRoom, dimRoom, spacing);
 
     delete tempMesh;
     
@@ -161,9 +160,15 @@ void saveVoxelsToObj(const char * outfile)
 int main(int argc, char **argv)
 {
 
-    unsigned int dim = 64; //dimension of voxel grid (e.g. 32x32x32)
+    unsigned int dimMesh = 32; // dimensions of mesh (e.g. 32x32x32)
+    unsigned int dimRoom = 128; // dimensions of room 
 
-    //Load OBJ
+    // offsets of lamp from bottom left corner of room
+    int offsetX = dimRoom/2-dimMesh/2; 
+    int offsetY = dimRoom/2-dimMesh/2;
+    int offsetZ = dimRoom-dimMesh;
+
+    // load OBJ
     if(argc < 3)
     {
         std::cout<<"Usage: Voxelizer InputMeshFilename OutputMeshFilename \n";
@@ -171,39 +176,32 @@ int main(int argc, char **argv)
     }
     
     std::cout<<"Load Mesh : "<<argv[1]<<"\n";
-    loadMesh(argv[1], dim);
-    
-    int nx = g_voxelGrid->m_dimX;
-    int ny = g_voxelGrid->m_dimY;
-    int nz = g_voxelGrid->m_dimZ;
+    loadMesh(argv[1], dimMesh, dimRoom);
+
 
     //Cast ray, check if voxel is inside or outside
     //even number of surface intersections = outside (OUT then IN then OUT)
     // odd number = inside (IN then OUT)
     CompFab::Vec3 voxelPos;
     CompFab::Vec3 direction(1.0,0.0,0.0);
-    
-    /********* ASSIGNMENT *********/
-    /* Iterate over all voxels in g_voxelGrid and test whether they are inside our outside of the
-     * surface defined by the triangles in g_triangleList */
 
     double spacing = g_voxelGrid->m_spacing;
     
     CompFab::Vec3 hspacing(0.5*spacing, 0.5*spacing, 0.5*spacing);
     
-    // for (int ii = 0; ii < nx; ii++) {
-    //     for (int jj = 0; jj < ny; jj++) {
-    //         for (int kk = 0; kk < nz; kk++) {
-    //             CompFab::Vec3 coord(((double)ii)*spacing, ((double)jj)*spacing, ((double)kk)*spacing);
-    //             voxelPos = coord + hspacing;
-    //             int hits = numSurfaceIntersections(voxelPos, direction);
+    for (int ii = 0; ii < nx; ii++) {
+        for (int jj = 0; jj < ny; jj++) {
+            for (int kk = 0; kk < nz; kk++) {
+                CompFab::Vec3 coord(((double)ii)*spacing, ((double)jj)*spacing, ((double)kk)*spacing);
+                voxelPos = coord + hspacing;
+                int hits = numSurfaceIntersections(voxelPos, direction);
 
-    //             if (hits % 2 != 0) {
-    //                 g_voxelGrid->isInside(ii,jj,kk) = true;
-    //             }
-    //         }
-    //     }
-    // }
+                if (hits % 2 != 0) {
+                    g_voxelGrid->isInside(ii,jj,kk) = true;
+                }
+            }
+        }
+    }
 
     using namespace cv;
     using namespace std;
@@ -220,6 +218,15 @@ int main(int argc, char **argv)
     imshow("hello", img);
     // halts code
     waitKey(0);
+
+    // Show floor
+    for (int ii = 0; ii < dimRoom; ii++) {
+        for (int jj = 0; jj < dimRoom; jj++) {
+            g_voxelGrid->isInside(ii,jj,0) = true;
+        }
+    }
+
+
 
     //Write out voxel data as obj
     saveVoxelsToObj(argv[2]);
