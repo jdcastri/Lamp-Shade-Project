@@ -189,15 +189,15 @@ int main(int argc, char **argv)
     
     CompFab::Vec3 hspacing(0.5*spacing, 0.5*spacing, 0.5*spacing);
     
-    for (int ii = 0; ii < nx; ii++) {
-        for (int jj = 0; jj < ny; jj++) {
-            for (int kk = 0; kk < nz; kk++) {
+    for (int ii = 0; ii < dimMesh; ii++) {
+        for (int jj = 0; jj < dimMesh; jj++) {
+            for (int kk = 0; kk < dimMesh; kk++) {
                 CompFab::Vec3 coord(((double)ii)*spacing, ((double)jj)*spacing, ((double)kk)*spacing);
                 voxelPos = coord + hspacing;
                 int hits = numSurfaceIntersections(voxelPos, direction);
 
                 if (hits % 2 != 0) {
-                    g_voxelGrid->isInside(ii,jj,kk) = true;
+                    g_voxelGrid->isInside(ii+offsetX,jj+offsetY,kk+offsetZ) = true;
                 }
             }
         }
