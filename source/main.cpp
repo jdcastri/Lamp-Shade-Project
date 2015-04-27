@@ -1,33 +1,27 @@
-/*
-** Authors: Sami Alsheikh and Juan Castrillon
-** April 2015
-** Based on work by David Levin 2014 for 6.S079 Assignment 1.
+/* Authors: Sami Alsheikh and Juan Castrillon
+ * April 2015
+ * Based on work by David Levin 2014 for 6.S079 Assignment 1. 
  */
-
 #include <iostream>
 #include <vector>
 #include <cmath>
 #include <thread>
 #include "../include/CompFab.h"
 #include "../include/Mesh.h"
-
-// OpenCV dependencies
 #include "opencv2/core/core.hpp"
 #include "opencv2/imgproc/imgproc.hpp"
 #include "opencv2/highgui/highgui.hpp"
 
+
+
 // Global Variables //
 std::vector<CompFab::Triangle> g_triangleList; // Triangle list 
 CompFab::VoxelGrid *g_voxelGrid; // Voxel grid of universe
-unsigned int dimMesh = 32; // dimensions of mesh (affects runtime)
-unsigned int dimRoomX; // dimensions of room (does not affect runtime)
-unsigned int dimRoomY; // dimensions of room (does not affect runtime)
-unsigned int dimRoomZ = 100;
-// NOTE: As code is written now, dimRoom must equal dimension of input image.
-// TODO Make scaling/room and mesh dimensions not scale in relation to each other.
+unsigned int dimMesh, dimRoomX, dimRoomY, dimRoomZ; // Dimensions of mesh and room
 int* imageArray; // Array of pixels of desired projection image
-CompFab::Vec3 lightSource;
+CompFab::Vec3 lightSource; // Location of light source from bottom left corner of room
 int offsetX, offsetY, offsetZ; // Location of lamp from bottom left corner of room
+
 
 
 // Ray-Floor Intersection Point
@@ -133,6 +127,7 @@ int numSurfaceIntersections(CompFab::Vec3 &voxelPos, CompFab::Vec3 &dir)
     return numHits;
 }
 
+// Loads input mesh and initializes voxel grid of room of room
 bool loadMesh(char *filename)
 {
     g_triangleList.clear();
@@ -179,36 +174,6 @@ bool loadMesh(char *filename)
     return true;
 }
 
-void saveVoxelsToObj(const char * outfile)
-{
- 
-    Mesh box;
-    Mesh mout;
-    int nx = g_voxelGrid->m_dimX;
-    int ny = g_voxelGrid->m_dimY;
-    int nz = g_voxelGrid->m_dimZ;
-    double spacing = g_voxelGrid->m_spacing;
-    
-    CompFab::Vec3 hspacing(0.5*spacing, 0.5*spacing, 0.5*spacing);
-    
-    for (int ii = 0; ii < nx; ii++) {
-        for (int jj = 0; jj < ny; jj++) {
-            for (int kk = 0; kk < nz; kk++) {
-                if(!g_voxelGrid->isInside(ii,jj,kk)){
-                    continue;
-                }
-                CompFab::Vec3 coord(((double)ii)*spacing, ((double)jj)*spacing, ((double)kk)*spacing);
-                CompFab::Vec3 box0 = coord - hspacing;
-                CompFab::Vec3 box1 = coord + hspacing;
-                makeCube(box, box0, box1);
-                mout.append(box);
-            }
-        }
-    }
-
-    mout.save_obj(outfile);
-}
-
 // Inserts 0's and 1's into imageArray based on loaded image from imagePath.
 void loadImage(std::string imagePath){
     cv::Mat img = cv::imread(imagePath,CV_LOAD_IMAGE_GRAYSCALE); // Reads image at path.
@@ -238,6 +203,37 @@ void loadImage(std::string imagePath){
             }
         }
     }
+}
+
+// Saves voxel data to OBJ
+void saveVoxelsToObj(const char * outfile)
+{
+ 
+    Mesh box;
+    Mesh mout;
+    int nx = g_voxelGrid->m_dimX;
+    int ny = g_voxelGrid->m_dimY;
+    int nz = g_voxelGrid->m_dimZ;
+    double spacing = g_voxelGrid->m_spacing;
+    
+    CompFab::Vec3 hspacing(0.5*spacing, 0.5*spacing, 0.5*spacing);
+    
+    for (int ii = 0; ii < nx; ii++) {
+        for (int jj = 0; jj < ny; jj++) {
+            for (int kk = 0; kk < nz; kk++) {
+                if(!g_voxelGrid->isInside(ii,jj,kk)){
+                    continue;
+                }
+                CompFab::Vec3 coord(((double)ii)*spacing, ((double)jj)*spacing, ((double)kk)*spacing);
+                CompFab::Vec3 box0 = coord - hspacing;
+                CompFab::Vec3 box1 = coord + hspacing;
+                makeCube(box, box0, box1);
+                mout.append(box);
+            }
+        }
+    }
+
+    mout.save_obj(outfile);
 }
 
 // Ray casting for voxelizations with specified bounds
@@ -303,26 +299,29 @@ void parallelVoxelization(unsigned int numThreads){
 
 int main(int argc, char **argv)
 {
-
-    // Start time
-    time_t start = time(0);
-    
-    // Load image
-    //std::string imagePath = "/home/jdcastri/Spring2015/6.S079/project/shadowimages/star.png";
-    std::string imagePath = "../shadowimages/1_notsq.png";
-
-    loadImage(imagePath);
-    
-    std::cout << "Image from " << imagePath << " loaded" << "\n";
-
-    // Load OBJ file of lampshade
-    if(argc < 3)
-    {
+    // Validate arguments
+    if(argc < 3){
         std::cout<<"Usage: Voxelizer InputMeshFilename OutputMeshFilename \n";
         return 0;
     }
 
-    // Load mesh
+    // Record start time
+    time_t start = time(0);
+
+
+    // Parameters //
+    dimMesh = 32; // dimensions of mesh (affects runtime)
+    dimRoomZ = 100; // height of room
+
+    
+    // Load shadow image
+    //std::string imagePath = "/home/jdcastri/Spring2015/6.S079/project/shadowimages/star.png";
+    std::string imagePath = "../shadowimages/1_notsq.png";
+    std::cout << "Load Image: " << imagePath << "\n";
+    loadImage(imagePath);
+
+
+    // Load OBJ file of lampshade
     std::cout << "Load Mesh: " << argv[1] << "\n";
     loadMesh(argv[1]);
 
@@ -358,6 +357,7 @@ int main(int argc, char **argv)
     delete g_voxelGrid;
     delete[] imageArray;
 
+    // Record time and calculate runtime
     time_t end = time(0);
     double runtime = difftime(end, start);
 
