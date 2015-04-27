@@ -7,6 +7,7 @@
 #include <iostream>
 #include <vector>
 #include <cmath>
+#include <thread>
 #include "../include/CompFab.h"
 #include "../include/Mesh.h"
 
@@ -23,6 +24,8 @@ unsigned int dimRoom = 256; // dimensions of room (does not affect runtime)
 // NOTE: As code is written now, dimRoom must equal dimension of input image.
 // TODO Make scaling/room and mesh dimensions not scale in relation to each other.
 int* imageArray; // Array of pixels of desired projection image
+CompFab::Vec3 lightSource;
+int offsetX, offsetY, offsetZ; // Offsets of lamp from bottom left corner of room
 
 
 // Ray-Floor Intersection Point
@@ -272,45 +275,8 @@ void loadImage(std::string imagePath){
     }
 }
 
-int main(int argc, char **argv)
-{
 
-    // Load OBJ file of lampshade
-    if(argc < 3)
-    {
-        std::cout<<"Usage: Voxelizer InputMeshFilename OutputMeshFilename \n";
-        return 0;
-    }
-
-    std::cout << "Load Mesh: " << argv[1] << "\n";
-    loadMesh(argv[1], dimMesh, dimRoom);
-    
-    // Load image
-    std::string imagePath = "/home/jdcastri/Spring2015/6.S079/project/shadowimages/star.png";
-    loadImage(imagePath);
-    
-    std::cout << "Image from " << imagePath << " loaded" << "\n";
-
-    // Show floor with image
-    // Delete later
-    for (int ii = 0; ii < dimRoom; ii++) {
-        for (int jj = 0; jj < dimRoom; jj++) {
-            g_voxelGrid->isInside(ii,jj,0) = 1-imageArray[ii*dimRoom + jj];
-        }
-    }
-
-    // Delete later
-    // loadTestSmileyOnGround();
-
-    /// Configure light source and lampshade ///
-    // Offsets of lamp from bottom left corner of room
-    int offsetX = dimRoom/2-dimMesh/2; 
-    int offsetY = dimRoom/2-dimMesh/2; 
-    int offsetZ = dimRoom-dimMesh;
-    // Light source location in room frame
-    CompFab::Vec3 lightSource(dimRoom/2, dimRoom/2, dimRoom - dimMesh/3);
-
-
+void voxelization(int starti, int endi, int startj, int endj, int startk, int endk){
     /// Ray casting for voxelization ///
     CompFab::Vec3 voxelPos, roomVoxelPos;
     CompFab::Vec3 direction(1.0,0.0,0.0);
@@ -319,9 +285,9 @@ int main(int argc, char **argv)
     
     CompFab::Vec3 hspacing(0.5*spacing, 0.5*spacing, 0.5*spacing);
     
-    for (int ii = 0; ii < dimMesh; ii++) {
-        for (int jj = 0; jj < dimMesh; jj++) {
-            for (int kk = 0; kk < dimMesh; kk++) {
+    for (int ii = starti; ii < endi; ii++) {
+        for (int jj = startj; jj < endj; jj++) {
+            for (int kk = startk; kk < endk; kk++) {
                 CompFab::Vec3 coord(((double)ii)*spacing, ((double)jj)*spacing, ((double)kk)*spacing);
                 voxelPos = coord + hspacing;
                 int hits = numSurfaceIntersections(voxelPos, direction);
@@ -344,14 +310,93 @@ int main(int argc, char **argv)
             }
         }
     }
+}
+
+
+void parallelVoxelization(unsigned int numThreads){
+    std::thread *threads = new std::thread[numThreads];
+    int chunkSize = dimMesh / numThreads;
+    int l = 0;          // left boundary
+    int r = chunkSize;  // right boundary
+
+    for(int i = 0; i < numThreads-1; i++){
+        threads[i] = std::thread(voxelization, 0, dimMesh, 0, dimMesh, l, r);
+        l = r;
+        r += chunkSize;
+    }
+
+    r = dimMesh;
+    threads[numThreads-1] = std::thread(voxelization, 0, dimMesh, 0, dimMesh, l, r);
+
+    // Wait for each thread to finish
+    for(int i = 0; i < numThreads; i++){
+        threads[i].join(); 
+    }
+
+    delete[] threads;
+
+}
+
+int main(int argc, char **argv)
+{
+
+    // Start time
+    time_t start = time(0);
+
+    // Load OBJ file of lampshade
+    if(argc < 3)
+    {
+        std::cout<<"Usage: Voxelizer InputMeshFilename OutputMeshFilename \n";
+        return 0;
+    }
+
+    std::cout << "Load Mesh: " << argv[1] << "\n";
+    loadMesh(argv[1], dimMesh, dimRoom);
+    
+    // Load image
+    //std::string imagePath = "/home/jdcastri/Spring2015/6.S079/project/shadowimages/star.png";
+    std::string imagePath = "../shadowimages/star.png";
+
+    loadImage(imagePath);
+    
+    std::cout << "Image from " << imagePath << " loaded" << "\n";
+
+    // Show floor with image
+    // Delete later
+    for (int ii = 0; ii < dimRoom; ii++) {
+        for (int jj = 0; jj < dimRoom; jj++) {
+            g_voxelGrid->isInside(ii,jj,0) = 1-imageArray[ii*dimRoom + jj];
+        }
+    }
+
+    // Delete later
+    // loadTestSmileyOnGround();
+
+    /// Configure light source and lampshade ///
+    // Offsets of lamp from bottom left corner of room
+    offsetX = dimRoom/2-dimMesh/2; 
+    offsetY = dimRoom/2-dimMesh/2; 
+    offsetZ = dimRoom-dimMesh;
+    // Light source location in room frame
+    lightSource = CompFab::Vec3(dimRoom/2, dimRoom/2, dimRoom - dimMesh/3);
+
+    // Ray casting for Voxelization
+    std::cout << "Voxelizing...\n";
+    parallelVoxelization(4);
 
     // Show light source location with single voxel
     // Delete later
     // g_voxelGrid->isInside(lightSource[0],lightSource[1],lightSource[2]) = true;
 
-    //Write out voxel data as obj
+    //Write out voxel data as OBJ
+    std::cout << "Saving Voxels to OBJ...\n";
     saveVoxelsToObj(argv[2]);
     
     delete g_voxelGrid;
     delete[] imageArray;
+
+    time_t end = time(0);
+    double runtime = difftime(end, start);
+
+    std::cout << "Total Runtime: " << runtime << " seconds \n";
 }
