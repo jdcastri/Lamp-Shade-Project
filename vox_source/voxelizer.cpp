@@ -12,6 +12,8 @@
 #include "opencv2/imgproc/imgproc.hpp"
 #include "opencv2/highgui/highgui.hpp"
 
+#include <fstream>
+
 
 
 // Global Variables //
@@ -22,7 +24,7 @@ int* imageArray; // Array of pixels of desired projection image
 CompFab::Vec3 lightSource; // Location of light source from bottom left corner of room
 int offsetX, offsetY, offsetZ; // Location of lamp from bottom left corner of room
 
-
+std::ofstream file;
 
 // Ray-Floor Intersection Point
 // Returns the point where the given ray intersects with the floor PLANE (even if out of bounds).
@@ -262,10 +264,11 @@ void voxelization(int starti, int endi, int startj, int endj, int startk, int en
                     CompFab::Vec3 roomVoxelPos(((double)(ii+offsetX)), 
                                         ((double)(jj+offsetY)), 
                                         ((double)(kk+offsetZ)));
+                    file << ii << "," << jj << "," << kk << "\n";
 
-                    if(shouldBlock(roomVoxelPos, lightSource)){
+                    //if(shouldBlock(roomVoxelPos, lightSource)){
                         g_voxelGrid->isInside(ii+offsetX,jj+offsetY,kk+offsetZ) = true;
-                    }
+                    //}
                 }
             }
         }
@@ -308,15 +311,14 @@ int main(int argc, char **argv)
     // Record start time
     time_t start = time(0);
 
-
     // Parameters //
-    dimMesh = 32; // dimensions of mesh (affects runtime)
+    dimMesh = 16; // dimensions of mesh (affects runtime)
     dimRoomZ = 100; // height of room
 
     
     // Load shadow image
-    //std::string imagePath = "/home/jdcastri/Spring2015/6.S079/project/shadowimages/star.png";
-    std::string imagePath = "../shadowimages/1_notsq.png";
+    std::string imagePath = "/home/jdcastri/Spring2015/6.S079/project/shadowimages/star.png";
+    //std::string imagePath = "../shadowimages/1_notsq.png";
     std::cout << "Load Image: " << imagePath << "\n";
     loadImage(imagePath);
 
@@ -334,6 +336,13 @@ int main(int argc, char **argv)
         }
     }
 
+    // write to file: dimMesh, dimRoomX, dimRoomY, dimRoomZ, all voxels in lampshade mesh as (ii,jj,kk) coordinates
+    file.open("voxelized16.txt");
+    file << dimMesh << "\n";
+    file << dimRoomX << "\n";
+    file << dimRoomY << "\n";
+    file << dimRoomZ << "\n";
+
     /// Configure light source and lampshade ///
     // Offsets of lamp from bottom left corner of room
     offsetX = dimRoomX/2-dimMesh/2; 
@@ -344,11 +353,8 @@ int main(int argc, char **argv)
 
     // Ray casting for Voxelization
     std::cout << "Voxelizing...\n";
-    parallelVoxelization(4);
-
-    // Show light source location with single voxel
-    // Delete later
-    // g_voxelGrid->isInside(lightSource[0],lightSource[1],lightSource[2]) = true;
+    int numThreads = 4;
+    parallelVoxelization(numThreads);
 
     //Write out voxel data as OBJ
     std::cout << "Saving Voxels to OBJ...\n";
@@ -356,6 +362,7 @@ int main(int argc, char **argv)
     
     delete g_voxelGrid;
     delete[] imageArray;
+    file.close();
 
     // Record time and calculate runtime
     time_t end = time(0);
