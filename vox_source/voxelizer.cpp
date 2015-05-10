@@ -9,11 +9,13 @@
 #include "../include/CompFab.h"
 #include "../include/Mesh.h"
 #include <fstream>
+#include <mutex>
 
 // Global Variables //
 std::vector<CompFab::Triangle> g_triangleList; // Triangle list 
 CompFab::VoxelGrid *g_voxelGrid; // Voxel grid of universe
 unsigned int dimMesh; // Dimensions of mesh and room
+std::mutex lock; // lock for preventing race conditions
 
 // write to file: bbmin, spacing, dimMesh, all voxels in lampshade mesh as (ii,jj,kk) coordinates
 std::ofstream file; 
@@ -148,16 +150,11 @@ void voxelization(int starti, int endi, int startj, int endj, int startk, int en
                 int hits = numSurfaceIntersections(voxelPos, direction);
 
                 if (hits % 2 != 0) {
-                    // At this point, we would normally set 
-                    // voxel to true, but for the desired shadow image,
-                    // we check to see if we should leave this
-                    // voxel in or out for light to pass through.
-
-                    // Location of voxel in room frame
-
+                    // Write coordinates of voxel to file
+                    // Prevent race conditions. Lock write.
+                    lock.lock();
                     file << ii << "," << jj << "," << kk << "\n";
-
-
+                    lock.unlock();
                 }
             }
         }
@@ -197,13 +194,12 @@ int main(int argc, char **argv)
         return 0;
     }
 
-    file.open("voxelized16.txt");
-
     // Record start time
     time_t start = time(0);
 
     // Parameters //
     dimMesh = std::stoi(argv[2]); // dimensions of mesh (affects runtime)
+    file.open("voxelized" + std::to_string(dimMesh) + ".txt");
 
     // Load OBJ file of lampshade
     std::cout << "Load Mesh: " << argv[1] << "\n";

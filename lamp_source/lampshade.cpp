@@ -56,9 +56,10 @@ int shouldBlock(CompFab::Vec3 &meshVoxelPos, CompFab::Vec3 &lightSourcePos)
 
     intersection = rayFloorIntersection(ray);
 
+    // If intersection is outside room dimensions, voxel should stay.
     if(intersection[0] < 0 || intersection[1] < 0 || 
         intersection[0] > dimRoomX - 1 || intersection[1] > dimRoomY - 1 ){
-        return 1; // If intersection is outside room dimensions, voxel should stay.
+        return 1; 
     }
 
     // imageArray tells us whether or not that pixel on the ground is black or white.
@@ -87,7 +88,6 @@ void loadImage(std::string imagePath){
 
     // Image pixels
     imageArray = new int[dimRoomX*dimRoomY]; // to access (x,y): imageArray[y*dimRoomX + x]
-    
     for(int x = 0; x < dimRoomX; x++){
         for(int y = 0; y < dimRoomY; y++){
             intensity = img.at<uchar>(y, x);
@@ -146,7 +146,6 @@ int main(int argc, char **argv) {
  	ifstream myfile (argv[1]);
 	if (myfile.is_open())
 	{
-		// set first six lines
 		getline(myfile, line);
 		vector<string> bbMin_params = split(line, ',');
 		CompFab::Vec3 bbMin (stoi(bbMin_params[0]), stoi(bbMin_params[1]), stoi(bbMin_params[2]));
@@ -161,7 +160,7 @@ int main(int argc, char **argv) {
 		// Load shadow image
 	    std::string imagePath = "/home/jdcastri/Spring2015/6.S079/project/shadowimages/star.png";
 	    // std::string imagePath = "../shadowimages/1_notsq.png";
-	    std::cout << "Load Image: " << imagePath << "\n";
+	    std::cout << "Loading Image: " << imagePath << "\n";
 	    loadImage(imagePath);
 
 	    int offsetX = dimRoomX/2-dimMesh/2; 
@@ -170,6 +169,7 @@ int main(int argc, char **argv) {
 
 		makeVoxelGrid(bbMin, dimRoomX, dimRoomY, dimRoomZ, spacing);
 
+		cout << "Removing voxels" << endl;
 		while (getline(myfile, line)) {
 			vector<string> vox_params = split(line, ',');
 			int ii = stoi(vox_params[0]);
@@ -183,13 +183,14 @@ int main(int argc, char **argv) {
                     ((double)(jj+offsetY)), 
                     ((double)(kk+offsetZ)));
 
+
 			if(shouldBlock(roomVoxelPos, lightSource)){
-				g_voxelGrid->isInside(ii+offsetX,jj+offsetY,kk+offsetZ) = true;
+				g_voxelGrid->isInside(ii+offsetX, jj+offsetY, kk+offsetZ) = true;
             }
 		}
 
+
 	    // Show floor with image
-		// Delete later
 		for (int ii = 0; ii < dimRoomX; ii++) {
 		    for (int jj = 0; jj < dimRoomY; jj++) {
 		        g_voxelGrid->isInside(ii,jj,0) = 1-imageArray[jj*dimRoomX + ii];
