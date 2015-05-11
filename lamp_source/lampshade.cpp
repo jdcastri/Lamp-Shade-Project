@@ -4,6 +4,7 @@
 #include <cmath>
 #include "../include/CompFab.h"
 #include "../include/Mesh.h"
+#include "../include/Wall.h"
 #include "opencv2/core/core.hpp"
 #include "opencv2/imgproc/imgproc.hpp"
 #include "opencv2/highgui/highgui.hpp"
@@ -28,79 +29,9 @@ vector<string> split(string str, char delimiter) {
 	return internal;
 }
 
-// Ray-Floor Intersection Point
-// Returns the point where the given ray intersects with the floor PLANE (even if out of bounds).
-CompFab::Vec3 rayFloorIntersection(CompFab::Ray &ray)
-{
-    CompFab::Vec3 orig, dir, floorNorm, intersection;
-
-    orig = ray.m_origin;
-    dir = ray.m_direction;
-
-    // Normal to floor is (0,0,1)
-    floorNorm = CompFab::Vec3(0.0,0.0,1.0);
-
-    // Time of intersection
-    double t = -1 * (orig * floorNorm) / (dir*floorNorm);
-
-    return CompFab::Vec3(orig[0]+t*dir[0], orig[1]+t*dir[1], orig[2]+t*dir[2]);
-}
-
-// Returns whether or not the voxel should still be present to block light to floor.
-int shouldBlock(CompFab::Vec3 &meshVoxelPos, CompFab::Vec3 &lightSourcePos)
-{
-    CompFab::Vec3 intersection, dir;
-
-    dir = meshVoxelPos - lightSourcePos;
-    CompFab::Ray ray(lightSourcePos,dir); // ray from light source pointing toward voxel
-
-    intersection = rayFloorIntersection(ray);
-
-    // If intersection is outside room dimensions, voxel should stay.
-    if(intersection[0] < 0 || intersection[1] < 0 || 
-        intersection[0] > dimRoomX - 1 || intersection[1] > dimRoomY - 1 ){
-        return 1; 
-    }
-
-    // imageArray tells us whether or not that pixel on the ground is black or white.
-    // We treat 0 as shadow and 1 as light
-    // If pixel is 0, we want a shadow so we should block (return 1), and vice versa.
-    return 1-imageArray[int(intersection[1])*dimRoomX + int(intersection[0])];
-}
-
 void makeVoxelGrid(CompFab::Vec3 &bbMin, int dimRoomX, int dimRoomY, int dimRoomZ, double spacing) {
 	CompFab::Vec3 hspacing(0.5*spacing, 0.5*spacing, 0.5*spacing);
 	g_voxelGrid = new CompFab::VoxelGrid(bbMin-hspacing, dimRoomX, dimRoomY, dimRoomZ, spacing);
-}
-
-// Inserts 0's and 1's into imageArray based on loaded image from imagePath.
-void loadImage(std::string imagePath){
-    cv::Mat img = cv::imread(imagePath,CV_LOAD_IMAGE_GRAYSCALE); // Reads image at path.
-    if (! img.data) {
-        std::cout << "***********Could not open or find image**********\n" << std::endl;
-        throw 20; 
-    }
-
-    dimRoomX = int(img.cols);
-    dimRoomY = int(img.rows);
-
-    cv::Scalar intensity;
-
-    // Image pixels
-    imageArray = new int[dimRoomX*dimRoomY]; // to access (x,y): imageArray[y*dimRoomX + x]
-    for(int x = 0; x < dimRoomX; x++){
-        for(int y = 0; y < dimRoomY; y++){
-            intensity = img.at<uchar>(y, x);
-            // intensity[0] is value between (0,255) for pixel
-            // 0 is black. 255 is white.
-            if(intensity[0] < 128){
-                imageArray[y*dimRoomX+x] = 0; 
-            }
-            else{
-                imageArray[y*dimRoomX+x] = 1;
-            }
-        }
-    }
 }
 
 // Saves voxel data to OBJ
@@ -155,21 +86,22 @@ int main(int argc, char **argv) {
 
 		getline(myfile,line);
 		dimMesh = stoi(line);
-		dimRoomZ = 200; // height of room
+        dimRoomX = 1000;
+        dimRoomY = 1000;
+		dimRoomZ = 300; // height of room
 
 		// Load shadow image
-	    std::string imagePath = "/home/jdcastri/Spring2015/6.S079/project/shadowimages/star.png";
+	    std::string floor_imagePath = "/home/jdcastri/Spring2015/6.S079/project/shadowimages/pattern2.jpg";
+        std::string wall_imagePath = "/home/jdcastri/Spring2015/6.S079/project/shadowimages/star.png";
 	    // std::string imagePath = "../shadowimages/1_notsq.png";
-	    std::cout << "Loading Image: " << imagePath << "\n";
-	    loadImage(imagePath);
+
+        Wall floor(floor_imagePath, CompFab::Vec3(0,0,1), dimRoomX, dimRoomY, dimRoomZ);
+        Wall wall(wall_imagePath, CompFab::Vec3(0,1,0), dimRoomX, dimRoomY, dimRoomZ);
 
 	    int offsetX = dimRoomX/2-dimMesh/2; 
 		int offsetY = dimRoomY/2-dimMesh/2; 
 		int offsetZ = dimRoomZ-dimMesh;
-
-        cout << offsetX << endl;
-        cout << offsetY << endl;
-        cout << offsetZ << endl; 
+ 
         if (offsetX < 0 || offsetY < 0 || offsetZ < 0) {
             cout << "ERROR: An offset is negative." << endl;
             return 0;
@@ -179,12 +111,10 @@ int main(int argc, char **argv) {
 
 		cout << "Removing voxels" << endl;
 		while (getline(myfile, line)) {
-            // cout << line << endl;
 			vector<string> vox_params = split(line, ',');
 			int ii = stoi(vox_params[0]);
 			int jj = stoi(vox_params[1]);
 			int kk = stoi(vox_params[2]);
-            // cout << "yup" << endl;
 
 			// Light source location in room frame
     		lightSource = CompFab::Vec3(dimRoomX/2, dimRoomY/2, dimRoomZ - dimMesh/3);
@@ -194,27 +124,24 @@ int main(int argc, char **argv) {
                     ((double)(kk+offsetZ)));
 
 
-			if(shouldBlock(roomVoxelPos, lightSource)){
-                // cout << "mhmm" << endl;
+			if(floor.shouldBlock(roomVoxelPos, lightSource) && wall.shouldBlock(roomVoxelPos, lightSource)){
 				g_voxelGrid->isInside(ii+offsetX, jj+offsetY, kk+offsetZ) = true;
-                // cout << "nope" << endl;
             }
 		}
 
-
-	    // Show floor with image
-		for (int ii = 0; ii < dimRoomX; ii++) {
-		    for (int jj = 0; jj < dimRoomY; jj++) {
-		        g_voxelGrid->isInside(ii,jj,0) = 1-imageArray[jj*dimRoomX + ii];
-		    }
-		}
+        // // Show floor with image
+		// for (int ii = 0; ii < dimRoomX; ii++) {
+		//     for (int jj = 0; jj < dimRoomY; jj++) {
+		//         g_voxelGrid->isInside(ii,jj,0) = 1-floor.imageArray[jj*dimRoomX + ii];
+		//     }
+		// }
 
 		//Write out voxel data as OBJ
 		std::cout << "Saving Voxels to OBJ...\n";
 		saveVoxelsToObj(argv[2]);
 
 		delete g_voxelGrid;
-		delete[] imageArray;		
+		// delete[] imageArray;		
 		myfile.close();
 	} else {
 		cout << "Unable to open file\n";
