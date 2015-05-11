@@ -155,7 +155,7 @@ int main(int argc, char **argv) {
 
 		getline(myfile,line);
 		dimMesh = stoi(line);
-		dimRoomZ = 100; // height of room
+		dimRoomZ = 200; // height of room
 
 		// Load shadow image
 	    std::string imagePath = "/home/jdcastri/Spring2015/6.S079/project/shadowimages/star.png";
@@ -167,14 +167,24 @@ int main(int argc, char **argv) {
 		int offsetY = dimRoomY/2-dimMesh/2; 
 		int offsetZ = dimRoomZ-dimMesh;
 
+        cout << offsetX << endl;
+        cout << offsetY << endl;
+        cout << offsetZ << endl; 
+        if (offsetX < 0 || offsetY < 0 || offsetZ < 0) {
+            cout << "ERROR: An offset is negative." << endl;
+            return 0;
+        }
+
 		makeVoxelGrid(bbMin, dimRoomX, dimRoomY, dimRoomZ, spacing);
 
 		cout << "Removing voxels" << endl;
 		while (getline(myfile, line)) {
+            // cout << line << endl;
 			vector<string> vox_params = split(line, ',');
 			int ii = stoi(vox_params[0]);
 			int jj = stoi(vox_params[1]);
 			int kk = stoi(vox_params[2]);
+            // cout << "yup" << endl;
 
 			// Light source location in room frame
     		lightSource = CompFab::Vec3(dimRoomX/2, dimRoomY/2, dimRoomZ - dimMesh/3);
@@ -185,7 +195,9 @@ int main(int argc, char **argv) {
 
 
 			if(shouldBlock(roomVoxelPos, lightSource)){
+                // cout << "mhmm" << endl;
 				g_voxelGrid->isInside(ii+offsetX, jj+offsetY, kk+offsetZ) = true;
+                // cout << "nope" << endl;
             }
 		}
 
