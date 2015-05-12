@@ -86,17 +86,19 @@ int main(int argc, char **argv) {
 
 		getline(myfile,line);
 		dimMesh = stoi(line);
-        dimRoomX = 1000;
-        dimRoomY = 1000;
+        dimRoomX = 300;
+        dimRoomY = 300;
 		dimRoomZ = 300; // height of room
 
 		// Load shadow image
-	    std::string floor_imagePath = "/home/jdcastri/Spring2015/6.S079/project/shadowimages/pattern2.jpg";
+	    std::string floor_imagePath = "/home/jdcastri/Spring2015/6.S079/project/shadowimages/pattern1.png";
         std::string wall_imagePath = "/home/jdcastri/Spring2015/6.S079/project/shadowimages/star.png";
 	    // std::string imagePath = "../shadowimages/1_notsq.png";
 
-        Wall floor(floor_imagePath, CompFab::Vec3(0,0,1), dimRoomX, dimRoomY, dimRoomZ);
-        Wall wall(wall_imagePath, CompFab::Vec3(0,1,0), dimRoomX, dimRoomY, dimRoomZ);
+        vector<Wall*> walls;
+        // add Walls here...
+        walls.push_back(new Wall(floor_imagePath, CompFab::Vec3(0,0,1), dimRoomX, dimRoomY, dimRoomZ));
+        walls.push_back(new Wall(wall_imagePath, CompFab::Vec3(0,-1,0), dimRoomX, dimRoomY, dimRoomZ));
 
 	    int offsetX = dimRoomX/2-dimMesh/2; 
 		int offsetY = dimRoomY/2-dimMesh/2; 
@@ -124,7 +126,14 @@ int main(int argc, char **argv) {
                     ((double)(kk+offsetZ)));
 
 
-			if(floor.shouldBlock(roomVoxelPos, lightSource) && wall.shouldBlock(roomVoxelPos, lightSource)){
+            bool blockVox = true;
+            for (int i=0; i<walls.size(); i++) {
+                blockVox = blockVox && walls.at(i)->shouldBlock(roomVoxelPos, lightSource);
+                // if a wall doesn't want to block a voxel, the output of the other walls are irrelevant
+                if (!blockVox) { break; }
+            }
+
+			if(blockVox){
 				g_voxelGrid->isInside(ii+offsetX, jj+offsetY, kk+offsetZ) = true;
             }
 		}

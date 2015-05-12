@@ -13,13 +13,13 @@ Wall::Wall(std::string imagePath, CompFab::Vec3 norm, int dimRoomX, int dimRoomY
 };
 
 void Wall::setAxes(int dimRoomX, int dimRoomY, int dimRoomZ) {
-	// find origin by sum of normal components
+	// find point on wall by sum of normal components
 	if (CompFab::Vec3(1,1,1) * normal > 0) {
-		cout << "Origin: (0,0,0)" << endl;
-		origin = CompFab::Vec3(0,0,0);
+		cout << "Point: (0,0,0)" << endl;
+		point = CompFab::Vec3(0,0,0);
 	} else {
-		cout << "Origin: (dimRoomX, dimRoomY, dimRoomZ)" << endl;
-		origin = CompFab::Vec3(dimRoomX, dimRoomY, dimRoomZ);
+		cout << "Point: (dimRoomX, dimRoomY, dimRoomZ)" << endl;
+		point = CompFab::Vec3(dimRoomX, dimRoomY, dimRoomZ);
 	}
 
 	// find corresponding wall dimensions
@@ -55,8 +55,8 @@ void Wall::loadImage(std::string imagePath){
     // scale and center image relative to wall
     double scaleFactor;
     int paddingWidth, paddingHeight;
-    int dimImgWidth = int(img.cols);
-    int dimImgHeight = int(img.rows);
+    int dimImgHeight = int(img.cols);
+    int dimImgWidth = int(img.rows);
 
     cout << dimWallHeight << endl << dimWallWidth << endl;
 
@@ -114,7 +114,7 @@ CompFab::Vec3 Wall::rayFloorIntersection(CompFab::Ray &ray) {
     ray_dir = ray.m_direction;
 
     // Time of intersection
-    double t = -1 * ((origin - ray_orig) * normal) / (ray_dir*normal);
+    double t = ((point - ray_orig) * normal) / (ray_dir*normal);
 
     return CompFab::Vec3(ray_orig[0]+t*ray_dir[0], ray_orig[1]+t*ray_dir[1], ray_orig[2]+t*ray_dir[2]);
 }
@@ -150,8 +150,6 @@ int Wall::shouldBlock(CompFab::Vec3 &meshVoxelPos, CompFab::Vec3 &lightSourcePos
         width > dimWallWidth - 1 || height > dimWallHeight - 1 ){
         return 1; 
     }
-
-    // cout << width << ", " << height << endl;
 
     // imageArray tells us whether or not that pixel on the ground is black or white.
     // We treat 0 as shadow and 1 as light
