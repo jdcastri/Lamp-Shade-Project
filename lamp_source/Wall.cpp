@@ -116,6 +116,11 @@ CompFab::Vec3 Wall::rayFloorIntersection(CompFab::Ray &ray) {
     // Time of intersection
     double t = ((point - ray_orig) * normal) / (ray_dir*normal);
 
+    // negative time indicates no intersection
+    if (t<0) {
+    	return CompFab::Vec3(-1,-1,-1);
+    }
+
     return CompFab::Vec3(ray_orig[0]+t*ray_dir[0], ray_orig[1]+t*ray_dir[1], ray_orig[2]+t*ray_dir[2]);
 }
 

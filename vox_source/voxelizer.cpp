@@ -143,6 +143,7 @@ void voxelization(int starti, int endi, int startj, int endj, int startk, int en
     CompFab::Vec3 hspacing(0.5*spacing, 0.5*spacing, 0.5*spacing);
     
     for (int ii = starti; ii < endi; ii++) {
+        std::cout << "Progress: " << double(ii)/dimMesh * 100 << "%" << std::endl;
         for (int jj = startj; jj < endj; jj++) {
             for (int kk = startk; kk < endk; kk++) {
                 CompFab::Vec3 coord(((double)ii)*spacing, ((double)jj)*spacing, ((double)kk)*spacing);
