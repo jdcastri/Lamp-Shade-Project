@@ -13,7 +13,7 @@ class Wall {
         Wall(std::string imagePath, CompFab::Vec3 norm, int dimRoomX, int dimRoomY, int dimRoomZ);
         void setAxes(int dimRoomX, int dimRoomY, int dimRoomZ);
         void loadImage(std::string imagePath);
-        CompFab::Vec3 rayFloorIntersection(CompFab::Ray &ray);
+        CompFab::Vec3 rayWallIntersection(CompFab::Ray &ray);
         int shouldBlock(CompFab::Vec3 &meshVoxelPos, CompFab::Vec3 &lightSourcePos);
 
 };

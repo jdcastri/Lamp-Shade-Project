@@ -5,20 +5,24 @@
 #include "opencv2/highgui/highgui.hpp"
 
 using namespace std;
-
+/* 
+ * Wall is a plane in the room simulation
+ * imagePath : image to be projected on wall
+ * norm : normal of wall plane
+ * dimRoomX,Y,Z : dimensions of entire room
+ */
 Wall::Wall(std::string imagePath, CompFab::Vec3 norm, int dimRoomX, int dimRoomY, int dimRoomZ){
     normal = norm;
     setAxes(dimRoomX, dimRoomY, dimRoomZ);
     loadImage(imagePath);
 };
 
+// set width, height axes based on wall normal
 void Wall::setAxes(int dimRoomX, int dimRoomY, int dimRoomZ) {
 	// find point on wall by sum of normal components
 	if (CompFab::Vec3(1,1,1) * normal > 0) {
-		cout << "Point: (0,0,0)" << endl;
 		point = CompFab::Vec3(0,0,0);
 	} else {
-		cout << "Point: (dimRoomX, dimRoomY, dimRoomZ)" << endl;
 		point = CompFab::Vec3(dimRoomX, dimRoomY, dimRoomZ);
 	}
 
@@ -37,8 +41,6 @@ void Wall::setAxes(int dimRoomX, int dimRoomY, int dimRoomZ) {
 			throw 20;
 		}
 	}
-
-	cout << "Wall Dimensions: " << dimWallWidth << ", " << dimWallHeight << endl;
 }
 
 // Inserts 0's and 1's into imageArray based on loaded image from imagePath.
@@ -58,8 +60,6 @@ void Wall::loadImage(std::string imagePath){
     int dimImgHeight = int(img.cols);
     int dimImgWidth = int(img.rows);
 
-    cout << dimWallHeight << endl << dimWallWidth << endl;
-
     double roomAspectRatio = double(dimWallHeight) / dimWallWidth;
     double imgAspectRatio = double(dimImgHeight) / dimImgWidth;
 
@@ -74,11 +74,6 @@ void Wall::loadImage(std::string imagePath){
         paddingWidth = (dimWallWidth - (dimImgWidth * scaleFactor)) / 2.;
         paddingHeight = 0;
     }
-
-    cout << roomAspectRatio << endl << imgAspectRatio << endl << scaleFactor << endl;
-
-    cout << "padding width: " << paddingWidth << endl;
-    cout << "padding height: " << paddingHeight << endl;
 
     Mat imgResized;
     Size size(dimImgWidth * scaleFactor, dimImgHeight * scaleFactor);
@@ -107,7 +102,7 @@ void Wall::loadImage(std::string imagePath){
     }
 };
 
-CompFab::Vec3 Wall::rayFloorIntersection(CompFab::Ray &ray) {
+CompFab::Vec3 Wall::rayWallIntersection(CompFab::Ray &ray) {
     CompFab::Vec3 ray_orig, ray_dir, floorNorm, intersection;
 
     ray_orig = ray.m_origin;
@@ -131,7 +126,7 @@ int Wall::shouldBlock(CompFab::Vec3 &meshVoxelPos, CompFab::Vec3 &lightSourcePos
     dir = meshVoxelPos - lightSourcePos;
     CompFab::Ray ray(lightSourcePos,dir); // ray from light source pointing toward voxel
 
-    intersection = rayFloorIntersection(ray);
+    intersection = rayWallIntersection(ray);
 
 	// find corresponding wall dimensions
 	int width, height;

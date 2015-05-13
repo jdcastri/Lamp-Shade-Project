@@ -17,6 +17,7 @@ int offsetX, offsetY, offsetZ; // Location of lamp from bottom left corner of ro
 
 using namespace std;
 
+// split string into vector at every delimiter
 vector<string> split(string str, char delimiter) {
 	vector<string> internal;
 	stringstream ss(str); // Turn the string into a stream.
@@ -49,7 +50,9 @@ bool octTree(int len, int x, int y, int z) {
 
     // when we are considering a voxel cube of length 1, we are only considering one voxel
     if (len == 1) {
+        // uncomment bottom line if displaying floor
         return g_voxelGrid->isInside(x,y,z);
+        // return g_voxelGrid->isInside(x + offsetX,y + offsetY,z + offsetZ);
     } 
 
     int hlen = len/2;    
@@ -100,6 +103,38 @@ void saveVoxelsToObj(const char * outfile)
     mout.save_obj(outfile);
 }
 
+//uncomment this version of saveVoxelsToObj if you want to display floor/walls
+// Saves voxel data to OBJ
+// void saveVoxelsToObj(const char * outfile)
+// {
+ 
+//     Mesh box;
+//     Mesh mout;
+//     int nx = g_voxelGrid->m_dimX;
+//     int ny = g_voxelGrid->m_dimY;
+//     int nz = g_voxelGrid->m_dimZ;
+//     double spacing = g_voxelGrid->m_spacing;
+    
+//     CompFab::Vec3 hspacing(0.5*spacing, 0.5*spacing, 0.5*spacing);
+    
+//     for (int ii = 0; ii < nx; ii++) {
+//         for (int jj = 0; jj < ny; jj++) {
+//             for (int kk = 0; kk < nz; kk++) {
+//                 if(!g_voxelGrid->isInside(ii,jj,kk)){
+//                     continue;
+//                 }
+//                 CompFab::Vec3 coord(((double)ii)*spacing, ((double)jj)*spacing, ((double)kk)*spacing);
+//                 CompFab::Vec3 box0 = coord - hspacing;
+//                 CompFab::Vec3 box1 = coord + hspacing;
+//                 makeCube(box, box0, box1);
+//                 mout.append(box);
+//             }
+//         }
+//     }
+
+//     mout.save_obj(outfile);
+// }
+
 int main(int argc, char **argv) {
 
 	// Validate arguments
@@ -122,23 +157,24 @@ int main(int argc, char **argv) {
 
 		getline(myfile,line);
 		dimMesh = stoi(line);
-        dimRoomX = 1000;
-        dimRoomY = 1000;
-		dimRoomZ = 300; // height of room
+        dimRoomX = 256;
+        dimRoomY = 256;
+		dimRoomZ = 256; // height of room
 
 		// Load shadow image
-	    std::string floor_imagePath = "/home/jdcastri/Spring2015/6.S079/project/shadowimages/pattern1.png";
-        std::string wall_imagePath = "/home/jdcastri/Spring2015/6.S079/project/shadowimages/star.png";
-	    // std::string imagePath = "../shadowimages/1_notsq.png";
+	    std::string floor_imagePath = "/home/jdcastri/Spring2015/6.S079/project/shadowimages/star.png";
+        std::string wall_imagePath = "/home/jdcastri/Spring2015/6.S079/project/shadowimages/squares.png";
+        std::string wall_imagePath_2 = "/home/jdcastri/Spring2015/6.S079/project/shadowimages/smiley.png";
 
         vector<Wall*> walls;
         // add Walls here...
         walls.push_back(new Wall(floor_imagePath, CompFab::Vec3(0,0,1), dimRoomX, dimRoomY, dimRoomZ));
-        walls.push_back(new Wall(wall_imagePath, CompFab::Vec3(0,-1,0), dimRoomX, dimRoomY, dimRoomZ));
+        // walls.push_back(new Wall(wall_imagePath, CompFab::Vec3(0,1,0), dimRoomX, dimRoomY, dimRoomZ));
+        // walls.push_back(new Wall(wall_imagePath_2, CompFab::Vec3(1,0,0), dimRoomX, dimRoomY, dimRoomZ));
 
-	    int offsetX = dimRoomX/2-dimMesh/2; 
-		int offsetY = dimRoomY/2-dimMesh/2; 
-		int offsetZ = dimRoomZ-dimMesh;
+	    offsetX = dimRoomX/2-dimMesh/2; 
+		offsetY = dimRoomY/2-dimMesh/2; 
+		offsetZ = dimRoomZ-dimMesh;
  
         if (offsetX < 0 || offsetY < 0 || offsetZ < 0) {
             cout << "ERROR: An offset is negative." << endl;
@@ -177,13 +213,6 @@ int main(int argc, char **argv) {
                 g_voxelGrid->isInside(ii, jj, kk) = true;
             }
 		}
-
-        // // Show floor with image
-		// for (int ii = 0; ii < dimRoomX; ii++) {
-		//     for (int jj = 0; jj < dimRoomY; jj++) {
-		//         g_voxelGrid->isInside(ii,jj,0) = 1-floor.imageArray[jj*dimRoomX + ii];
-		//     }
-		// }
 
 		//Write out voxel data as OBJ
 		std::cout << "Saving Voxels to OBJ...\n";
